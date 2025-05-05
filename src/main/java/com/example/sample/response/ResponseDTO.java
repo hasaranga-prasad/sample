@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ResponseDTO {
 
-    private String status;
+    private int status;
     private String message;
     private Object data;
 
