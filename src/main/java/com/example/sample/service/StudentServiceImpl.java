@@ -1,13 +1,15 @@
 package com.example.sample.service;
-
 import com.example.sample.dto.StudentDTO;
 import com.example.sample.entity.Student;
+import com.example.sample.exception.EmailAlreadyExistsException;
+import com.example.sample.exception.PhoneNumberAlreadyExistsException;
+import com.example.sample.exception.StudentNotFoundException;
 import com.example.sample.repo.StudentRepo;
 import com.example.sample.response.ResponseDTO;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 
 @Service
@@ -17,60 +19,45 @@ public class StudentServiceImpl implements StudentService {
 
     @Override
     public ResponseDTO getAllStudents() {
-        try {
-            List<Student> students = studentRepository.findAll();
-            if (students.isEmpty()) {
-                return ResponseDTO.builder()
-                        .status(404)
-                        .message("No students found")
-                        .data(null)
-                        .build();
-            }
-            return ResponseDTO.builder()
-                    .status(200)
-                    .message("All students fetched successfully")
-                    .data(students)
-                    .build();
-        } catch (DataAccessException e) {
-            return ResponseDTO.builder()
-                    .status(500)
-                    .message("Database error occurred while fetching students: " + e.getMessage())
-                    .data(null)
-                    .build();
-        } catch (Exception e) {
-            return ResponseDTO.builder()
-                    .status(500)
-                    .message("An unexpected error occurred: " + e.getMessage())
-                    .data(null)
-                    .build();
+        List<Student> students = studentRepository.findAll();
+        if (students.isEmpty()) {
+            throw new StudentNotFoundException("No students found");
         }
 
+        return ResponseDTO.builder()
+                .status(200)
+                .message("All students fetched successfully")
+                .data(students)
+                .build();
     }
+
 
 
     @Override
     public ResponseDTO getStudentById(int id) {
+        Student student = studentRepository.findById(id)
+                .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + id));
 
-        return null;
+        return ResponseDTO.builder()
+                .status(200)
+                .message("Student fetched successfully")
+                .data(student)
+                .build();
     }
+
 
     @Override
     public ResponseDTO addStudent(StudentDTO studentDTO) {
-        try {
-            if (studentRepository.existsByPhone(studentDTO.getPhone())) {
-                return ResponseDTO.builder()
-                        .status(400)
-                        .message("Phone number already exists")
-                        .data(null)
-                        .build();
-            }
-            if (studentRepository.existsByEmail(studentDTO.getEmail())) {
-                return ResponseDTO.builder()
-                        .status(400)
-                        .message("Email address already exists")
-                        .data(null)
-                        .build();
-            }
+
+        if (studentRepository.existsByPhone(studentDTO.getPhone())) {
+            throw new PhoneNumberAlreadyExistsException("Phone number already exists");
+        }
+
+
+        if (studentRepository.existsByEmail(studentDTO.getEmail())) {
+            throw new EmailAlreadyExistsException("Email address already exists");
+        }
+
             Student student = Student.builder()
                     .name(studentDTO.getName())
                     .age(studentDTO.getAge())
@@ -78,37 +65,45 @@ public class StudentServiceImpl implements StudentService {
                     .email(studentDTO.getEmail())
                     .phone(studentDTO.getPhone())
                     .build();
-
             studentRepository.save(student);
             return ResponseDTO.builder()
                     .status(201)
                     .message("Student added successfully")
                     .data(student)
                     .build();
-        } catch (DataAccessException e) {
-            return ResponseDTO.builder()
-                    .status(500)
-                    .message("Database error occurred while adding the student: " + e.getMessage())
-                    .data(null)
-                    .build();
-        } catch (Exception e) {
-            return ResponseDTO.builder()
-                    .status(500)
-                    .message("An unexpected error occurred: " + e.getMessage())
-                    .data(null)
-                    .build();
-        }
     }
 
     @Override
-    public ResponseDTO updateStudent(int id, String name, int age) {
+    public ResponseEntity<ResponseDTO> updateStudent(int id, StudentDTO studentDTO) {
+        Student student = studentRepository.findById(id).
+                orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + id));
 
-        return null;
+        student.setName(studentDTO.getName());
+        student.setAge(studentDTO.getAge());
+        student.setAddress(studentDTO.getAddress());
+        student.setEmail(studentDTO.getEmail());
+        student.setPhone(studentDTO.getPhone());
+        studentRepository.save(student);
+        ResponseDTO response = ResponseDTO.builder()
+                .status(200)
+                .message("Student updated successfully")
+                .data(student)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
+
+
 
     @Override
     public ResponseDTO deleteStudent(int id) {
-
-        return null;
+        Student student = studentRepository.findById(id)
+                .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + id));
+        studentRepository.delete(student);
+        return ResponseDTO.builder()
+                .status(200)
+                .message("Student deleted successfully")
+                .data(null)
+                .build();
     }
+
 }
